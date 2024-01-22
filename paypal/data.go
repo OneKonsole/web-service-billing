@@ -6,6 +6,7 @@ import (
 	oko "github.com/OneKonsole/order-model"
 )
 
+// Paypal related
 type PaypalOrderInfos struct {
 	Order          oko.Order `json:"order_details"`
 	CurrencyCode   string    `json:"currency"`
@@ -23,6 +24,7 @@ type PaypalOrderLink struct {
 	Method string `json:"method"`
 }
 
+// Generic order related
 type OrderOrchestrator struct {
 	approvalChans map[string]chan bool
 	mutex         sync.Mutex
