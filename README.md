@@ -1,5 +1,5 @@
 # Web service billing
-## Introduction
+## Introduction
 Ce service a été fait pour gérer tout ce qui concerne le paiement des commandes d'un client. Ses fonctions sont de :
 - gérer le calcul des prix de notre application
 - créer une commande paypal (cf. https://developer.paypal.com/docs/api/orders/v2/)
@@ -10,7 +10,7 @@ Ce service a été fait pour gérer tout ce qui concerne le paiement des command
 ## Installation
 Ce service a été packagé dans une image distroless puis dans une helmchart. Du fait que certaines configurations sont récupérées dans des variables d'environnement, il sera nécessaire de créer un secret Kubernetes contenant ces dernières. La Helmchart ira lire ce secret afin de former l'environnement du client. 
 
-#### Environnement
+#### Environnement
 |VARIABLE|DESCRIPTION|EXEMPLE|
 |----|-----------|-----|
 |paypal_client_id|xxxxxxxxxxxxxxxxxxxxxxxx|Client ID de notre compte Paypal|
@@ -72,7 +72,6 @@ Comme évoqué précédemment, il y a 3 routes majeures exposées par ce service
 
 ### [GET] /order/prices
 > Content-Type: application/json 
-**HTTP BODY**
 
 **HTTP RESPONSE ARGS**
 |NOM|DESCRIPTION|
@@ -86,6 +85,7 @@ Comme évoqué précédemment, il y a 3 routes majeures exposées par ce service
 
 ### [POST] /order/create
 > Content-Type: application/json
+
 **REQUEST BODY**
 
 |NOM|DESCRIPTION|
@@ -106,6 +106,7 @@ Comme évoqué précédemment, il y a 3 routes majeures exposées par ce service
 
 ### [POST] /order/approve
 > Content-Type: application/json
+
 **REQUEST BODY**
 
 |NOM|DESCRIPTION|
@@ -122,11 +123,18 @@ Comme évoqué précédemment, il y a 3 routes majeures exposées par ce service
 
 ## TODO
 [] Créer une route pour les probes Kubernetes. Cette route doit vérifier dans des go routines séparées : la bonne configuration de l'application, la connexion au service web order. (sleep 30 secondes pour éviter de surcharger l'application)
+
 [] Enlever l'élément "links" lors de la réponse http à order/create
+
 [x] Créer la route pour donner les prix de base
+
 [] Gérer les erreurs lors du calcul de l'order
+
 [] Gérer toutes les réponses HTTP 
+
 [] Vérifier le statut de la commande lors de l'approbation avant de fermer le channel
+
 [] Ajouter des contextes aux requêtes
+
 [] Ajouter les validators sur les champs
 
