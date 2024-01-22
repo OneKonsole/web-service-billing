@@ -12,9 +12,23 @@ import (
 )
 
 // ===================================================================
-// Returns paypal access token for this client
+// Returns owner paypal access token
+//
+// Parameters:
+//
+//	(string) clientID : Paypal Client ID (owner)
+//	(string) clientSecret : Paypal Client Secret (owner)
+//
+// Return
+//
+//	(string) : The access token retrieved or empty if an error occurs
+//	(error) : Error during the process or nil if no error occurs
+//
+// Example:
+//
+//	accessToken, err := GetAccessToken("xxxx", "yyyy")
+//
 // ===================================================================
-
 func GetAccessToken(clientID string, clientSecret string) (string, error) {
 	url := "https://api-m.sandbox.paypal.com/v1/oauth2/token"
 
@@ -59,6 +73,28 @@ func GetAccessToken(clientID string, clientSecret string) (string, error) {
 	return accessToken, nil
 }
 
+// ===================================================================
+// Create a Paypal order based on the order details requested.
+// Asynchronously wait for paiement approval then capture it.
+// Calls web-order service in order to produce the order.
+//
+// Parameters:
+//
+//	(http.ResponseWriter) w : Used to generate HTTP responses (retrieved by the router)
+//	(PaypalOrderInfos) orderInfos : Information about the order to create
+//	(string) clientID : Paypal Client ID (owner). Used to retrieve the access token.
+//	(string) clientSecret : Paypal Client Secret (owner). Used to retrieve the access token.
+//	(string) webOrderUrl : Used to contact web-order service.
+//
+// Used on:
+//
+//	(*OrderOrchestrator) o : Object that permits asynchronous management of the order
+//
+// Example:
+//
+//	orderOrchestrator.CreateOrder(w, PaypalOrderInfos{...}, "xxxx", "xxxx", "http://localhost:8010/order")
+//
+// ===================================================================
 func (o *OrderOrchestrator) CreateOrder(
 	w http.ResponseWriter,
 	orderInfos PaypalOrderInfos,
@@ -118,23 +154,66 @@ func (o *OrderOrchestrator) CreateOrder(
 	}(captureURL)
 }
 
-func (orderOrchestrator *OrderOrchestrator) ApproveOrder(orderID string, w http.ResponseWriter, r *http.Request) {
+// ===================================================================
+// Signal the order creation that the client has approved the order.
+//
+// Parameters:
+//
+//	(string) orderID : ID of the created Paypal Order
+//	(http.ResponseWriter) w : Used to generate HTTP responses (retrieved by the router)
+//	(*http.Request) r : HTTP request used to contact this function
+//
+// Used on:
+//
+//	(*OrderOrchestrator) o : Object that permits asynchronous management of the order
+//
+// Example:
+//
+//	orderOrchestrator.ApproveOrder("xyYxyZ",w, r)
+//
+// ===================================================================
+func (orderOrchestrator *OrderOrchestrator) ApproveOrder(
+	orderID string,
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	// Lock orderOrchestrator operations for other go routines (integrity)
 	orderOrchestrator.mutex.Lock()
 
 	// TODO : Validate order status
 	if approvalChannel, ok := orderOrchestrator.approvalChans[orderID]; ok {
 		// Sends approval signal to channel for this order
 		approvalChannel <- true
+		// Remove this channel since it has been processed
 		delete(orderOrchestrator.approvalChans, orderID)
 	}
+	// Unlock orderOrchestrator operations for other go routines
 	orderOrchestrator.mutex.Unlock()
 
+	// HTTP Response
 	helpers.RespondWithJSON(w, http.StatusOK, PaypalOrderResponse{
 		Status:  "APPROVED",
 		OrderID: orderID,
 	})
 }
 
+// ===================================================================
+// Capture the paiement once approved by the client
+//
+// Parameters:
+//
+//	(string) accessToken : Paypal merchnat access token
+//	(string) captureURL : Paypal API URL used to capture the paiement
+//
+// Return:
+//
+//	(error) : Error during process or nil if no error occurs
+//
+// Example:
+//
+//	_ := captureOrder("xyYxyZxxxxYZxZ", "https://api.sandbox.paypal.com/v2/checkout/orders/xyYxyZxxxxYZxZ/capture")
+//
+// ===================================================================
 func captureOrder(accessToken string, captureURL string) error {
 
 	client := &http.Client{}
@@ -148,11 +227,13 @@ func captureOrder(accessToken string, captureURL string) error {
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
+	// Actually make the request
 	res, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
+	// Validate response status code
 	if res.StatusCode != http.StatusCreated {
 		return errors.New("external error capturing order")
 	}
@@ -162,6 +243,28 @@ func captureOrder(accessToken string, captureURL string) error {
 	return nil
 }
 
+// ===================================================================
+// Paypal API designed request to create an order
+//
+// Parameters:
+//
+//		(string) url : Paypal API URL used to create the order
+//		(string) accessToken : Paypal merchant access token
+//	 (PaypalOrderInfos) : Details about the order requested
+//
+// Return:
+//
+//	(PaypalOrderResponse) : Struct used to create a consistant HTTP response
+//	(error) : Error during process or nil if no error occurs
+//
+// Example:
+//
+//	orderResponse, err := captureOrder(
+//		"https://api.sandbox.paypal.com/v2/checkout/orders/xyYxyZxxxxYZxZ/capture",
+//		"xyYxyZxxxxYZxZ",
+//		PaypalOrderInfos{...})
+//
+// ===================================================================
 func createPaypalOrder(
 	url string,
 	accessToken string,
@@ -195,11 +298,13 @@ func createPaypalOrder(
 		return PaypalOrderResponse{}, err
 	}
 
+	// Add request headers
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := &http.Client{}
 
+	// Actually make the request
 	res, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("[ERROR] Unable to initiate http client, %s\n", err)
@@ -208,8 +313,10 @@ func createPaypalOrder(
 
 	defer res.Body.Close()
 
+	// Create an HTTP response for this order creation
 	var orderRes PaypalOrderResponse
 
+	// If the order was created, create the response
 	if res.StatusCode == http.StatusCreated {
 		decoder := json.NewDecoder(res.Body)
 
@@ -217,6 +324,8 @@ func createPaypalOrder(
 		if err != nil {
 			return PaypalOrderResponse{}, err
 		}
+	} else {
+		return PaypalOrderResponse{}, errors.New("err: order could not be created")
 	}
 
 	return orderRes, nil
