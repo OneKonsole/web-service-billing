@@ -1,3 +1,4 @@
+# helm upgrade --install sys-service-provisioning ../web-service-billing/web-billing-chart/ -n web-billing --create-namespace  -f web-service-billing/values.yaml
 # Default values for web-order-chart.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -6,13 +7,13 @@ replicaCount: 1
 
 image:
   repository: onekonsole/web-service-billing
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: latest
 
 imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
+nameOverride: "web-billing"
+fullnameOverride: "web-billing-service"
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -40,31 +41,35 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  type: ""
-  port: ""
+  type: ClusterIP
+  port: 8030
 
 ingress:
-  enabled: false
-  className: ""
-  labels: {}
-  annotations: {}
+  enabled: true
+  className: nginx
+  labels: 
+    ingress-target-updater: "true"
+  annotations: 
+    external-dns.alpha.kubernetes.io/target: 127.0.0.1
+    nginx.ingress.kubernetes.io/auth-url: http://authentification-service.auth.svc.cluster.local/verify?code=200
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: chart-example.local
+    - host: billing.onekonsole.emetral.fr
       paths:
         - path: /
-          pathType: ImplementationSpecific
+          pathType: Prefix
   tls: []
+
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
 
 env:
-  secretName:
-  CLIENT_ID: 
-  CLIENT_SECRET: 
-  WEB_ORDER_URL: 
+  secretName: web-billing-configuration
+  CLIENT_ID: paypal_client_id
+  CLIENT_SECRET: paypal_client_secret
+  WEB_ORDER_URL: web_order_service_url
 
   
 resources: {}

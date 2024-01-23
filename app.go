@@ -81,7 +81,6 @@ func (a *App) getPrices(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) validatePodHealth(w http.ResponseWriter, r *http.Request) {
 	helpers.RespondWithJSON(w, http.StatusOK, "")
-	// @TODO
 }
 
 func (a *App) approveOrder(w http.ResponseWriter, r *http.Request) {
@@ -110,16 +109,14 @@ func (a *App) createOrder(w http.ResponseWriter, r *http.Request) {
 	// Calculating the price based on order infos
 	price := helpers.CalculatePrice(&a.OrderInfos.Order)
 	a.OrderInfos.MaxAmountValue = strconv.Itoa(price)
-	fmt.Printf("\n[INFO] Order creation requested by %s\n", a.OrderInfos.Order.UserID)
-	fmt.Printf("   ---> Cluster name : %s\n", a.OrderInfos.Order.ClusterName)
-	fmt.Printf("   ---> Control plane : %s\n", strconv.FormatBool(a.OrderInfos.Order.HasControlPlane))
-	fmt.Printf("   ---> Monitoring : %s - %d Go\n",
+	fmt.Printf("\n[INFO] Order creation requested by %s\n   ---> Cluster name : %s\n   ---> Control plane : %s\n   ---> Monitoring : %s - %d Go\n   ---> Images storage : %d\n   ---> Alerting : %s\n   ---> Price calculated : (%d %s) \n\n",
+		a.OrderInfos.Order.UserID,
+		a.OrderInfos.Order.ClusterName,
+		strconv.FormatBool(a.OrderInfos.Order.HasControlPlane),
 		strconv.FormatBool(a.OrderInfos.Order.HasControlPlane),
 		a.OrderInfos.Order.MonitoringStorage,
-	)
-	fmt.Printf("   ---> Images storage : %d\n", a.OrderInfos.Order.ImageStorage)
-	fmt.Printf("   ---> Alerting : %s\n", strconv.FormatBool(a.OrderInfos.Order.HasControlPlane))
-	fmt.Printf("   ---> Price calculated : (%d %s) \n\n",
+		a.OrderInfos.Order.ImageStorage,
+		strconv.FormatBool(a.OrderInfos.Order.HasControlPlane),
 		price,
 		a.OrderInfos.CurrencyCode,
 	)

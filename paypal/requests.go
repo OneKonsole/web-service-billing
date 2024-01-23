@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -113,8 +114,7 @@ func (o *OrderOrchestrator) CreateOrder(
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("[INFO] Paypal order created\n")
-	fmt.Printf("[INFO] Web order URL : %s\n", webOrderURL)
+	fmt.Printf("[INFO] Paypal order created ! \n")
 	approvalChannel := make(chan bool)
 
 	// Ensures synchronisation on approvalChans var (only 1 function can write at a time)
@@ -142,7 +142,8 @@ func (o *OrderOrchestrator) CreateOrder(
 	go func(clientCaptureURL string) {
 		approved := <-approvalChannel
 		if approved {
-			err := captureOrder(accessToken, clientCaptureURL)
+			// This code has been commented since Frontend Paypal SDK manages it
+			// err := captureOrder(accessToken, clientCaptureURL)
 			if err != nil {
 				fmt.Printf("[ERROR] Could not capture order: %s\n", err)
 			}
@@ -214,8 +215,8 @@ func (orderOrchestrator *OrderOrchestrator) ApproveOrder(
 //	_ := captureOrder("xyYxyZxxxxYZxZ", "https://api.sandbox.paypal.com/v2/checkout/orders/xyYxyZxxxxYZxZ/capture")
 //
 // ===================================================================
-func captureOrder(accessToken string, captureURL string) error {
-
+func CaptureOrder(accessToken string, captureURL string) error {
+	fmt.Printf("[INFO] Setting up order capture on %s\n", captureURL)
 	client := &http.Client{}
 
 	req, err := http.NewRequest("POST", captureURL, nil)
@@ -233,10 +234,18 @@ func captureOrder(accessToken string, captureURL string) error {
 		return err
 	}
 
+	fmt.Printf("[INFO] Capturing order....\n")
+
+	body, _ := io.ReadAll(res.Body)
+	fmt.Printf("[DEBUG] Paypal capture status code :%d\n", res.StatusCode)
+	fmt.Printf("[DEBUG] Paypal capture response : \n%s\n", string(body))
+
 	// Validate response status code
 	if res.StatusCode != http.StatusCreated {
 		return errors.New("external error capturing order")
 	}
+
+	fmt.Printf("[INFO] Order captured !\n")
 
 	defer res.Body.Close()
 
