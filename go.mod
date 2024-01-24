@@ -3,7 +3,7 @@ module github.com/OneKonsole/web-service-billing
 go 1.21.4
 
 require (
-	github.com/OneKonsole/order-model v0.0.0-20240108145136-2656065aeb02
+	github.com/OneKonsole/order-model v0.0.0-20240124143047-d4a156846263
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/gorilla/mux v1.8.1
 )

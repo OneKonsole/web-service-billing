@@ -91,7 +91,9 @@ func (a *App) approveOrder(w http.ResponseWriter, r *http.Request) {
 	if err := decoder.Decode(&parsedBody); err != nil {
 		fmt.Printf("Invalid payload: %s", err)
 	}
-	fmt.Printf("[INFO] Approving order for user %s...\n", a.OrderInfos.Order.UserID)
+	fmt.Printf("[INFO] Approving order %s for user %s...\n",
+		string(parsedBody["order_id"]),
+		a.OrderInfos.Order.UserID)
 
 	a.OrderOrchestrator.ApproveOrder(string(parsedBody["order_id"]), w, r)
 }

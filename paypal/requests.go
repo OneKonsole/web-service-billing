@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	helpers "github.com/OneKonsole/web-service-billing/helpers"
@@ -138,15 +139,28 @@ func (o *OrderOrchestrator) CreateOrder(
 		"status":   createdOrder.Status,
 	})
 
+	orderInfos.Order.PaypalID = createdOrder.OrderID
+
 	// Goroutine that waits for client approval
 	go func(clientCaptureURL string) {
 		approved := <-approvalChannel
 		if approved {
+			fmt.Printf("[INFO] Received order approval, capturing on :  %s\n", captureURL)
 			// This code has been commented since Frontend Paypal SDK manages it
 			// err := captureOrder(accessToken, clientCaptureURL)
 			if err != nil {
 				fmt.Printf("[ERROR] Could not capture order: %s\n", err)
 			}
+			fmt.Printf("\n[INFO] Order %s creation requested by %s\n   ---> Cluster name : %s\n   ---> Control plane : %s\n   ---> Monitoring : %s - %d Go\n   ---> Images storage : %d\n   ---> Alerting : %s\n\n",
+				orderInfos.Order.PaypalID,
+				orderInfos.Order.UserID,
+				orderInfos.Order.ClusterName,
+				strconv.FormatBool(orderInfos.Order.HasControlPlane),
+				strconv.FormatBool(orderInfos.Order.HasControlPlane),
+				orderInfos.Order.MonitoringStorage,
+				orderInfos.Order.ImageStorage,
+				strconv.FormatBool(orderInfos.Order.HasAlerting),
+			)
 			err = helpers.LaunchOrder(webOrderURL, &orderInfos.Order)
 			if err != nil {
 				fmt.Printf("[ERROR] %s\n", err)
@@ -179,17 +193,19 @@ func (orderOrchestrator *OrderOrchestrator) ApproveOrder(
 	r *http.Request,
 ) {
 	// Lock orderOrchestrator operations for other go routines (integrity)
-	orderOrchestrator.mutex.Lock()
 
 	// TODO : Validate order status
 	if approvalChannel, ok := orderOrchestrator.approvalChans[orderID]; ok {
+		fmt.Printf("[INFO] Launching order %s approval via channel.\n", orderID)
 		// Sends approval signal to channel for this order
+		orderOrchestrator.mutex.Lock()
 		approvalChannel <- true
+		fmt.Printf("[INFO] Deleting order %s approval channel.\n", orderID)
 		// Remove this channel since it has been processed
 		delete(orderOrchestrator.approvalChans, orderID)
+		orderOrchestrator.mutex.Unlock()
 	}
 	// Unlock orderOrchestrator operations for other go routines
-	orderOrchestrator.mutex.Unlock()
 
 	// HTTP Response
 	helpers.RespondWithJSON(w, http.StatusOK, PaypalOrderResponse{

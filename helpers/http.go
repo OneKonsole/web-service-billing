@@ -1,7 +1,9 @@
 package helpers
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	oko "github.com/OneKonsole/order-model"
@@ -46,11 +48,20 @@ func RespondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 }
 
 func LaunchOrder(webOrderURL string, order *oko.Order) error {
+	fmt.Printf("[INFO] Trying to call web order for order %d on : %s\n", order.ID, webOrderURL)
 
 	client := &http.Client{}
 
-	req, err := http.NewRequest("POST", webOrderURL, nil)
+	orderJSON, err := json.Marshal(order)
+
 	if err != nil {
+		errMessage := "[ERROR] Could not marshal order to JSON when producing order.\n"
+		fmt.Print(errMessage)
+		return err
+	}
+	req, err := http.NewRequest("POST", webOrderURL, bytes.NewBuffer(orderJSON))
+	if err != nil {
+		fmt.Printf("[ERROR] Could not initiate a request to web order for order %d\n", order.ID)
 		return err
 	}
 
@@ -59,8 +70,11 @@ func LaunchOrder(webOrderURL string, order *oko.Order) error {
 
 	res, err := client.Do(req)
 	if err != nil {
+		fmt.Printf("[ERROR] Could not make request to web order for order %d.\n", order.ID)
 		return err
 	}
+
+	fmt.Printf("[INFO] Made request to web order for order %d. Status code : %d\n", order.ID, res.StatusCode)
 
 	defer res.Body.Close()
 
